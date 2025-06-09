@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GS2 Polity Notes</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        header h1 {
+            flex: 1;
+            margin: 0;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        aside {
+            width: 250px;
+            overflow-y: auto;
+            background-color: #ecf0f1;
+            padding: 10px;
+        }
+        #contentFrame {
+            flex: 1;
+            border: none;
+            height: 100%;
+        }
+        .search-highlight {
+            background-color: yellow;
+        }
+        body.dark {
+            background-color: #121212;
+            color: #ddd;
+        }
+        body.dark header {
+            background-color: #1c1c1c;
+        }
+        body.dark aside {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>GS2 Polity Notes</h1>
+        <input type="text" id="searchInput" placeholder="Search...">
+        <button id="searchBtn">Search</button>
+        <button id="themeToggle">Toggle Theme</button>
+    </header>
+    <aside>
+        <h2>Contents</h2>
+        <ul id="toc"></ul>
+    </aside>
+    <main>
+        <iframe id="contentFrame" src="notes.html" loading="lazy"></iframe>
+    </main>
+    <script>
+        function slugify(text) {
+            return text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        }
+
+        function buildTOC(doc) {
+            const toc = document.getElementById('toc');
+            toc.innerHTML = '';
+            const headings = doc.querySelectorAll('h1, h2, h3');
+            headings.forEach(h => {
+                const id = slugify(h.textContent);
+                h.id = id;
+                const li = document.createElement('li');
+                const link = document.createElement('a');
+                link.textContent = h.textContent;
+                link.href = '#' + id;
+                li.appendChild(link);
+                toc.appendChild(li);
+            });
+        }
+
+        function applySearch(doc, term) {
+            const body = doc.body;
+            body.querySelectorAll('mark.search-highlight').forEach(el => {
+                const parent = el.parentNode;
+                parent.replaceChild(document.createTextNode(el.textContent), el);
+                parent.normalize();
+            });
+            if (!term) return;
+            const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+            const nodes = [];
+            const regex = new RegExp(term, 'gi');
+            while (walker.nextNode()) {
+                if (regex.test(walker.currentNode.nodeValue)) {
+                    nodes.push(walker.currentNode);
+                }
+            }
+            nodes.forEach(node => {
+                const html = node.nodeValue.replace(regex, match => `<mark class="search-highlight">${match}</mark>`);
+                const frag = doc.createRange().createContextualFragment(html);
+                node.replaceWith(frag);
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const iframe = document.getElementById('contentFrame');
+            const searchBtn = document.getElementById('searchBtn');
+            const searchInput = document.getElementById('searchInput');
+            const themeToggle = document.getElementById('themeToggle');
+
+            const darkCSS = `\nbody.dark { background-color: #121212; color: #ddd; }\n`;
+
+            function ensureDarkStyles(doc) {
+                if (!doc.getElementById('dark-styles')) {
+                    const style = doc.createElement('style');
+                    style.id = 'dark-styles';
+                    style.textContent = darkCSS;
+                    doc.head.appendChild(style);
+                }
+            }
+
+            iframe.addEventListener('load', () => {
+                const doc = iframe.contentDocument;
+                buildTOC(doc);
+                ensureDarkStyles(doc);
+                if (document.body.classList.contains('dark')) {
+                    doc.body.classList.add('dark');
+                }
+            });
+
+            searchBtn.addEventListener('click', () => {
+                const doc = iframe.contentDocument;
+                applySearch(doc, searchInput.value.trim());
+            });
+
+            themeToggle.addEventListener('click', () => {
+                const doc = iframe.contentDocument;
+                document.body.classList.toggle('dark');
+                doc.body.classList.toggle('dark');
+            });
+        });
+    </script>
+</body>
+</html>
